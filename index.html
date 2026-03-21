@@ -699,7 +699,7 @@ function processVoiceItem(text) {
     if (existing) {
       if (parsed.rest) addSubItem(existing.id, parsed.rest);
       state.activeDayId = existing.id;
-
+      reorderItems();
     } else {
       addDayGroup(parsed.day, parsed.rest||null);
     }
@@ -722,12 +722,23 @@ function addDayGroup(day, firstItem) {
   mutateItems(items => [...items, {id:gid,type:'day-group',day,collapsed:false,items:subItems}]);
   state.activeDayId = gid;
   flash(`Added ${capFirst(day)}${firstItem?` · "${capFirst(firstItem)}"`:''}`);
+  reorderItems();
 }
 function addSubItem(gid, text) {
   const t = capFirst(text);
   mutateItems(items => items.map(i=>
     i.id===gid?{...i,items:[...(i.items||[]),{id:uid(),text:t,checked:false}]}:i));
   flash(`Added "${t}"`);
+}
+
+function reorderItems() {
+  // Sort day groups into Mon-Sun order, regular items always go last
+  mutateItems(items => {
+    const dayGroups = items.filter(i => i.type === 'day-group')
+      .sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day));
+    const regular = items.filter(i => i.type !== 'day-group');
+    return [...dayGroups, ...regular];
+  });
 }
 
 // ═══════════════════════════════════════
