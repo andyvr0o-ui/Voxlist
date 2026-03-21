@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#0e0e1a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Voice Lists</title>
+<link rel="manifest" href="manifest.json"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  :root {
+    --bg:        #0e0e1a;
+    --surface:   #16182a;
+    --surface2:  #1e2138;
+    --border:    rgba(255,255,255,0.08);
+    --text:      rgba(255,255,255,0.92);
+    --muted:     rgba(255,255,255,0.38);
+    --purple:    #7c3aed;
+    --purple2:   #4f46e5;
+    --cyan:      #06b6d4;
+    --red:       #dc2626;
+    --safe-top:    env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html, body { height: 100%; background: var(--bg); font-family: 'Nunito', sans-serif; color: var(--text); overflow: hidden; }
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  /* ── Screens ── */
+  .screen { display: none; flex-direction: column; flex: 1; overflow: hidden; padding-top: var(--safe-top); }
+  .screen.active { display: flex; }
+
+  /* ── Scrollable area ── */
+  .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px 16px; }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* ── Header ── */
+  .header { padding: 20px 20px 12px; flex-shrink: 0; }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .title { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; margin-top: 4px; }
+
+  /* ── Bottom bar ── */
+  .bottom-bar { flex-shrink: 0; padding: 12px 24px; padding-bottom: calc(20px + var(--safe-bottom)); background: rgba(255,255,255,0.02); border-top: 1px solid var(--border); display: flex; justify-content: center; align-items: center; }
+
+  /* ── List cards ── */
+  .list-card { display: flex; align-items: center; gap: 14px; padding: 16px; margin-bottom: 10px; background: var(--surface); border-radius: 18px; border: 1px solid var(--border); cursor: pointer; transition: background 0.15s; position: relative; }
+  .list-card:active { background: var(--surface2); }
+  .list-icon { width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .list-info { flex: 1; min-width: 0; }
+  .list-name { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-meta { font-size: 13px; color: var(--muted); margin-top: 3px; font-weight: 600; }
+  .list-progress { margin-top: 8px; height: 4px; background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden; }
+  .list-progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+  .list-del { background: none; border: none; color: rgba(239,68,68,0.4); font-size: 20px; cursor: pointer; padding: 8px; flex-shrink: 0; font-family: inherit; }
+  .list-del:active { color: rgba(239,68,68,0.8); }
+
+  /* ── FAB ── */
+  .fab { width: 62px; height: 62px; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--purple), var(--purple2)); color: #fff; font-size: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 28px rgba(124,58,237,0.45), 0 8px 20px rgba(0,0,0,0.4); transition: transform 0.15s; font-family: inherit; }
+  .fab:active { transform: scale(0.94); }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 80px 32px 32px; color: var(--muted); }
+  .empty .emoji { font-size: 56px; display: block; margin-bottom: 14px; }
+  .empty p { font-size: 16px; font-weight: 600; line-height: 1.5; }
+  .empty small { font-size: 13px; color: rgba(255,255,255,0.2); margin-top: 8px; display: block; line-height: 1.6; }
+
+  /* ── Progress bar ── */
+  .progress-wrap { margin-top: 10px; }
+  .progress-bar { height: 5px; background: rgba(255,255,255,0.07); border-radius: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 10px; transition: width 0.4s; }
+  .progress-label { font-size: 11px; color: var(--muted); margin-top: 5px; font-weight: 600; }
+
+  /* ── Back button ── */
+  .back-btn { background: none; border: none; color: #a78bfa; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-bottom: 12px; font-family: inherit; padding: 0; }
+
+  /* ── Detail header ── */
+  .detail-title-row { display: flex; justify-content: space-between; align-items: center; }
+  .detail-title-left { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0; }
+  .detail-icon { font-size: 30px; flex-shrink: 0; }
+  .detail-name { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .edit-hint { font-size: 14px; color: rgba(255,255,255,0.2); margin-left: 6px; flex-shrink: 0; }
+  .count-badge { background: rgba(120,80,255,0.15); border: 1px solid rgba(120,80,255,0.3); border-radius: 20px; padding: 6px 14px; color: #a78bfa; font-size: 13px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+
+  /* ── Rename bar ── */
+  .rename-bar { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+
+  /* ── Day context banner ── */
+  .day-banner { margin-top: 10px; padding: 8px 14px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .day-banner-text { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.75); }
+  .day-banner-exit { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.35); cursor: pointer; border: none; background: none; font-family: inherit; }
+
+  /* ── Item rows ── */
+  .item-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-bottom: 8px; border-radius: 16px; border: 1px solid var(--border); animation: slideIn 0.22s ease; transition: background 0.15s; }
+  .item-row.unchecked { background: var(--surface); }
+  .item-row.checked   { background: rgba(255,255,255,0.025); border-color: rgba(255,255,255,0.04); }
+  .checkbox { width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border: 2px solid rgba(124,58,237,0.55); background: transparent; }
+  .checkbox.done { background: linear-gradient(135deg, var(--purple), var(--cyan)); border: none; box-shadow: 0 0 12px rgba(124,58,237,0.4); }
+  .checkbox.done::after { content: '✓'; color: #fff; font-size: 14px; font-weight: 900; }
+  .item-text { flex: 1; font-size: 17px; font-weight: 600; transition: all 0.2s; }
+  .item-text.done { color: rgba(255,255,255,0.25); text-decoration: line-through; }
+  .item-del-btn { background: none; border: none; color: rgba(255,255,255,0.15); font-size: 22px; cursor: pointer; padding: 0 6px; font-family: inherit; line-height: 1; transition: color 0.15s; }
+  .item-del-btn:active { color: rgba(239,68,68,0.7); }
+
+  /* ── Day group ── */
+  .day-group { margin-bottom: 12px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; animation: slideIn 0.22s ease; transition: border-color 0.2s; }
+  .day-group.active-group { border-width: 1px; }
+  .day-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; }
+  .day-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .day-label { flex: 1; font-size: 14px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+  .day-count { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .day-chevron { font-size: 13px; color: var(--muted); margin-left: 4px; }
+  .day-del { background: none; border: none; color: rgba(255,255,255,0.18); font-size: 17px; cursor: pointer; padding: 0 4px; margin-left: 6px; font-family: inherit; }
+  .day-del:active { color: rgba(239,68,68,0.7); }
+  .day-body { background: rgba(255,255,255,0.02); padding: 8px 10px 10px; }
+  .sub-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; margin-bottom: 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.04); }
+  .sub-row.checked { background: rgba(255,255,255,0.015); border-color: rgba(255,255,255,0.03); }
+  .sub-checkbox { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .sub-text { flex: 1; font-size: 16px; font-weight: 600; transition: all 0.2s; }
+  .sub-text.done { color: rgba(255,255,255,0.25); text-decoration: line-through; }
+  .sub-del { background: none; border: none; color: rgba(255,255,255,0.12); font-size: 19px; cursor: pointer; padding: 0 4px; font-family: inherit; line-height: 1; }
+  .sub-del:active { color: rgba(239,68,68,0.7); }
+  .day-empty { padding: 10px 8px; font-size: 14px; font-style: italic; color: rgba(255,255,255,0.2); font-weight: 600; }
+
+  /* ── Clear button ── */
+  .clear-btn { text-align: center; color: rgba(239,68,68,0.5); font-size: 14px; font-weight: 700; padding: 12px; cursor: pointer; letter-spacing: 0.5px; border: none; background: none; width: 100%; font-family: inherit; }
+
+  /* ── Voice feedback ── */
+  .voice-bar { margin: 0 16px 10px; padding: 12px 16px; background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.25); border-radius: 16px; }
+  .waveform { display: flex; align-items: center; justify-content: center; gap: 3px; height: 32px; margin-bottom: 8px; }
+  .wave-bar { width: 3px; border-radius: 2px; transition: height 0.1s; }
+  .voice-transcript { font-size: 13px; font-weight: 600; text-align: center; color: rgba(255,255,255,0.4); font-style: italic; min-height: 18px; }
+  .voice-transcript.has-text { color: rgba(255,255,255,0.8); font-style: normal; }
+
+  /* ── Mic button ── */
+  .mic-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+  .mic-ring { position: absolute; border-radius: 50%; border: 2px solid rgba(124,58,237,0.25); pointer-events: none; }
+  .mic-btn { width: 72px; height: 72px; border-radius: 50%; border: none; color: #fff; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; transition: all 0.2s; font-family: inherit; }
+  .mic-btn.idle     { background: linear-gradient(135deg, var(--purple), var(--purple2)); box-shadow: 0 0 28px rgba(124,58,237,0.4), 0 8px 20px rgba(0,0,0,0.4); }
+  .mic-btn.active   { background: linear-gradient(135deg, var(--red), #ef4444); box-shadow: 0 0 28px rgba(220,38,38,0.5), 0 8px 20px rgba(0,0,0,0.4); transform: scale(1.08); }
+
+  /* ── Flash toast ── */
+  #flash { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--purple), var(--cyan)); color: #fff; padding: 10px 24px; border-radius: 24px; font-size: 15px; font-weight: 700; box-shadow: 0 8px 24px rgba(124,58,237,0.4); white-space: nowrap; z-index: 200; display: none; animation: fadeUp 0.2s ease; pointer-events: none; }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: flex; align-items: flex-end; z-index: 100; }
+  .modal-sheet { width: 100%; background: #1a1a2e; border-radius: 28px 28px 0 0; padding: 24px 24px; padding-bottom: calc(32px + var(--safe-bottom)); border-top: 1px solid rgba(255,255,255,0.1); max-height: 88vh; overflow-y: auto; }
+  .modal-sheet::-webkit-scrollbar { display: none; }
+  .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; }
+  .modal-preview { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: rgba(255,255,255,0.05); border-radius: 16px; margin-bottom: 20px; }
+  .modal-preview-icon { width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; }
+  .modal-preview-name { font-size: 17px; font-weight: 700; }
+  .modal-preview-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .field-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .text-input { width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 14px 16px; color: #fff; font-size: 16px; font-family: 'Nunito', sans-serif; outline: none; transition: border-color 0.2s; }
+  .text-input:focus { border-color: rgba(124,58,237,0.6); }
+  .input-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+  .color-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .color-dot { width: 36px; height: 36px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: all 0.15s; flex-shrink: 0; }
+  .color-dot.selected { border-color: #fff; transform: scale(1.18); }
+  .modal-actions { display: flex; gap: 12px; }
+  .btn-cancel { flex: 1; padding: 15px; border-radius: 14px; background: rgba(255,255,255,0.07); border: none; color: rgba(255,255,255,0.55); font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; }
+  .btn-create { flex: 2; padding: 15px; border-radius: 14px; background: linear-gradient(135deg, var(--purple), var(--purple2)); border: none; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif; }
+
+  /* ── Small mic (for modal / rename) ── */
+  .mic-sm { width: 52px; height: 52px; border-radius: 50%; border: none; color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; transition: all 0.2s; flex-shrink: 0; }
+  .mic-sm.idle   { background: linear-gradient(135deg, var(--purple), var(--purple2)); box-shadow: 0 0 16px rgba(124,58,237,0.4); }
+  .mic-sm.active { background: linear-gradient(135deg, var(--red), #ef4444); box-shadow: 0 0 16px rgba(220,38,38,0.4); transform: scale(1.08); }
+  .mic-xs { width: 40px; height: 40px; border-radius: 50%; border: none; color: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; transition: all 0.2s; flex-shrink: 0; }
+  .mic-xs.idle   { background: linear-gradient(135deg, var(--purple), var(--purple2)); box-shadow: 0 0 12px rgba(124,58,237,0.35); }
+  .mic-xs.active { background: linear-gradient(135deg, var(--red), #ef4444); transform: scale(1.08); }
+
+  /* ── Rename inline ── */
+  .rename-voice-bar { padding: 8px 12px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); border-radius: 12px; margin-bottom: 8px; }
+  .rename-voice-text { font-size: 12px; text-align: center; margin-top: 4px; color: rgba(255,255,255,0.55); font-style: italic; }
+
+  /* ── Animations ── */
+  @keyframes slideIn  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeUp   { from { opacity:0; transform:translateX(-50%) translateY(8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  @keyframes pulseRing { 0%{opacity:0.65;transform:scale(0.82)} 100%{opacity:0;transform:scale(1.42)} }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ══════════════ HOME SCREEN ══════════════ -->
+  <div class="screen active" id="screen-home">
+    <div class="header">
+      <div class="label">Voice Lists</div>
+      <div class="title">My Lists</div>
+    </div>
+    <div class="scroll" id="home-scroll"></div>
+    <div class="bottom-bar">
+      <button class="fab" id="fab-new" aria-label="New list">+</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ DETAIL SCREEN ══════════════ -->
+  <div class="screen" id="screen-detail">
+    <div class="header" id="detail-header">
+      <button class="back-btn" id="back-btn">← All Lists</button>
+      <div class="detail-title-row">
+        <div class="detail-title-left" id="detail-title-left">
+          <span class="detail-icon" id="detail-icon"></span>
+          <span class="detail-name" id="detail-name"></span>
+          <span class="edit-hint">✏️</span>
+        </div>
+        <div class="count-badge" id="detail-count"></div>
+      </div>
+      <!-- Rename bar (hidden by default) -->
+      <div id="rename-bar" style="display:none; margin-top:10px;">
+        <div class="rename-voice-bar" id="rename-voice-bar" style="display:none;">
+          <div class="waveform" id="rename-waveform"></div>
+          <div class="rename-voice-text" id="rename-transcript">Speak the new name…</div>
+        </div>
+        <div class="rename-bar">
+          <button class="mic-xs idle" id="rename-mic-btn">🎤</button>
+          <button class="btn-cancel" style="flex:1;padding:8px 16px;font-size:14px;" id="rename-cancel">Cancel</button>
+        </div>
+      </div>
+      <!-- Progress -->
+      <div class="progress-wrap" id="detail-progress" style="display:none;">
+        <div class="progress-bar"><div class="progress-fill" id="detail-progress-fill"></div></div>
+        <div class="progress-label" id="detail-progress-label"></div>
+      </div>
+      <!-- Day context banner -->
+      <div class="day-banner" id="day-banner" style="display:none;">
+        <span class="day-banner-text" id="day-banner-text"></span>
+        <button class="day-banner-exit" id="day-banner-exit">✕ Exit</button>
+      </div>
+    </div>
+
+    <div class="scroll" id="detail-scroll"></div>
+
+    <!-- Voice feedback -->
+    <div class="voice-bar" id="voice-bar" style="display:none;">
+      <div class="waveform" id="item-waveform"></div>
+      <div class="voice-transcript" id="item-transcript">Listening… speak an item, pause for next</div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="mic-wrap" id="mic-wrap">
+        <button class="mic-btn idle" id="mic-btn">🎤</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Flash toast -->
+<div id="flash"></div>
+
+<!-- New List Modal -->
+<div class="modal-overlay" id="modal" style="display:none;">
+  <div class="modal-sheet">
+    <div class="modal-title">New List</div>
+    <div class="modal-preview">
+      <div class="modal-preview-icon" id="modal-preview-icon">📋</div>
+      <div>
+        <div class="modal-preview-name" id="modal-preview-name" style="color:rgba(255,255,255,0.3)">List name…</div>
+        <div class="modal-preview-sub">Icon chosen automatically</div>
+      </div>
+    </div>
+    <div class="field-label">Name your list</div>
+    <!-- Modal voice bar -->
+    <div class="voice-bar" id="modal-voice-bar" style="display:none; margin:0 0 10px;">
+      <div class="waveform" id="modal-waveform"></div>
+      <div class="voice-transcript" id="modal-transcript">Speak the list name…</div>
+    </div>
+    <div class="input-row">
+      <input class="text-input" id="modal-input" placeholder="e.g. Shopping, Kids Week…" maxlength="40"/>
+      <button class="mic-sm idle" id="modal-mic-btn">🎤</button>
+    </div>
+    <div class="field-label">Colour</div>
+    <div class="color-row" id="color-row"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-create" id="modal-create">Create List</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════
+const STORAGE_KEY = 'voice-lists-v1';
+const COLORS = [
+  { bg:'#4f46e5', grad:'linear-gradient(135deg,#7c3aed,#4f46e5)' },
+  { bg:'#0891b2', grad:'linear-gradient(135deg,#06b6d4,#0891b2)' },
+  { bg:'#dc2626', grad:'linear-gradient(135deg,#ef4444,#dc2626)' },
+  { bg:'#d97706', grad:'linear-gradient(135deg,#f59e0b,#d97706)' },
+  { bg:'#16a34a', grad:'linear-gradient(135deg,#22c55e,#16a34a)' },
+  { bg:'#db2777', grad:'linear-gradient(135deg,#ec4899,#db2777)' },
+];
+const DAY_COLORS = {
+  monday:    { bg:'#4f46e5', light:'rgba(79,70,229,0.15)',   border:'rgba(79,70,229,0.35)' },
+  tuesday:   { bg:'#0891b2', light:'rgba(8,145,178,0.15)',   border:'rgba(8,145,178,0.35)' },
+  wednesday: { bg:'#16a34a', light:'rgba(22,163,74,0.15)',   border:'rgba(22,163,74,0.35)' },
+  thursday:  { bg:'#d97706', light:'rgba(217,119,6,0.15)',   border:'rgba(217,119,6,0.35)' },
+  friday:    { bg:'#db2777', light:'rgba(219,39,119,0.15)',  border:'rgba(219,39,119,0.35)' },
+  saturday:  { bg:'#7c3aed', light:'rgba(124,58,237,0.15)',  border:'rgba(124,58,237,0.35)' },
+  sunday:    { bg:'#dc2626', light:'rgba(220,38,38,0.15)',   border:'rgba(220,38,38,0.35)' },
+};
+const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+const ICON_RULES = [
+  [['shop','grocer','supermarket','market','buy','tesco','asda','sainsbury'],'🛒'],
+  [['holiday','travel','trip','vacation','flight','pack','suitcase'],'✈️'],
+  [['christmas','xmas','festive','advent'],'🎄'],
+  [['school','study','book','homework','college','university','revision','learn'],'📚'],
+  [['gym','fitness','workout','exercise','training','weights'],'💪'],
+  [['home','house','flat','diy','repair','declutter'],'🏠'],
+  [['medicine','medical','doctor','pharmacy','health','prescription'],'💊'],
+  [['game','gaming','xbox','playstation','nintendo'],'🎮'],
+  [['music','playlist','song','album','concert','band'],'🎵'],
+  [['work','office','meeting','project','job','business','client'],'💼'],
+  [['meal','dinner','lunch','breakfast','recipe','cook','bake'],'🍕'],
+  [['garden','plant','flower','grow','allotment'],'🌿'],
+  [['pet','dog','cat','animal','vet'],'🐾'],
+  [['birthday','gift','present','party','celebrate','anniversary'],'🎁'],
+  [['fix','repair','tool','build','install'],'🔧'],
+  [['art','draw','paint','design','craft','creative'],'🎨'],
+  [['football','soccer','sport','match','team'],'⚽'],
+  [['clean','hoover','tidy','laundry','wash','chores'],'🧹'],
+  [['idea','plan','brainstorm','note','reminder'],'💡'],
+  [['baby','toddler','nappy'],'🧸'],
+  [['wine','drink','beer','alcohol','pub','bar'],'🍷'],
+  [['church','ministry','prayer','worship','sermon','bible','sunday'],'⛪'],
+  [['money','budget','finance','bill','pay','invoice','tax','savings'],'💰'],
+  [['car','drive','vehicle','mot','service','fuel','parking'],'🚗'],
+  [['week','monday','tuesday','wednesday','schedule','plan','daily'],'📅'],
+  [['kids','children','family','son','daughter'],'👨‍👩‍👧'],
+];
+
+function autoIcon(name) {
+  const lower = (name||'').toLowerCase();
+  for (const [keywords, icon] of ICON_RULES) {
+    if (keywords.some(k => lower.includes(k))) return icon;
+  }
+  return '📋';
+}
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+function uid()  { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveData() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.lists)); } catch {}
+}
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const state = {
+  lists: loadData(),
+  currentListId: null,
+  activeDayId: null,
+  renaming: false,
+  selectedColor: 0,
+};
+
+function currentList() { return state.lists.find(l => l.id === state.currentListId); }
+function getItems()    { return currentList()?.items || []; }
+
+function mutateList(fn) {
+  state.lists = state.lists.map(l => l.id === state.currentListId ? fn(l) : l);
+  saveData();
+}
+function mutateItems(fn) {
+  mutateList(l => ({ ...l, items: fn(l.items || []) }));
+}
+
+function countItems(items = []) {
+  let total = 0, done = 0;
+  for (const item of items) {
+    if (item.type === 'item') { total++; if (item.checked) done++; }
+    else if (item.type === 'day-group') {
+      for (const si of item.items || []) { total++; if (si.checked) done++; }
+    }
+  }
+  return { total, done };
+}
+
+function parseVoice(text) {
+  const lower = text.trim().toLowerCase();
+  for (const day of DAYS) {
+    if (lower.startsWith(day)) {
+      return { isDay: true, day, rest: text.trim().slice(day.length).trim() };
+    }
+  }
+  return { isDay: false, text: text.trim() };
+}
+
+// ═══════════════════════════════════════════════
+//  VOICE ENGINE
+// ═══════════════════════════════════════════════
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function makeVoice() {
+  let rec = null, waveTimer = null, onResult = null;
+  let isOn = false;
+
+  return {
+    get isOn() { return isOn; },
+    start(cb, opts = {}) {
+      if (!SR) { alert('Speech recognition requires Chrome.'); return; }
+      onResult = cb;
+      rec = new SR();
+      rec.continuous    = opts.continuous || false;
+      rec.interimResults = true;
+      rec.lang          = 'en-US';
+      rec.onresult = e => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) { if (onResult) onResult(r[0].transcript.trim(), true); }
+          else           { if (onResult) onResult(r[0].transcript.trim(), false); }
+        }
+      };
+      rec.onend  = () => { isOn = false; if (opts.onEnd) opts.onEnd(); };
+      rec.onerror= () => { isOn = false; if (opts.onEnd) opts.onEnd(); };
+      rec.start();
+      isOn = true;
+    },
+    stop() { try { rec && rec.stop(); } catch {} isOn = false; },
+    startWave(bars) {
+      waveTimer = setInterval(() => {
+        bars.forEach(b => { b.style.height = (Math.random()*28+4)+'px'; });
+      }, 120);
+    },
+    stopWave() { clearInterval(waveTimer); }
+  };
+}
+
+// Three independent voice instances
+const itemVoice  = makeVoice();
+const modalVoice = makeVoice();
+const renameVoice= makeVoice();
+
+// Pending buffer for continuous item voice
+let pending = [], silenceTimer = null;
+
+// ═══════════════════════════════════════════════
+//  FLASH
+// ═══════════════════════════════════════════════
+let flashTimer = null;
+function flash(msg) {
+  const el = document.getElementById('flash');
+  el.textContent = '✓ ' + msg;
+  el.style.display = 'block';
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { el.style.display = 'none'; }, 1800);
+}
+
+// ═══════════════════════════════════════════════
+//  WAVEFORM BARS
+// ═══════════════════════════════════════════════
+function buildWave(container) {
+  container.innerHTML = '';
+  const bars = Array.from({length: 20}, (_, i) => {
+    const b = document.createElement('div');
+    b.className = 'wave-bar';
+    b.style.background = `hsl(${260+i*4},70%,65%)`;
+    b.style.height = '4px';
+    container.appendChild(b);
+    return b;
+  });
+  return bars;
+}
+
+// ═══════════════════════════════════════════════
+//  MIC PULSE RINGS
+// ═══════════════════════════════════════════════
+function addRings(wrap) {
+  [1,2].forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'mic-ring';
+    const size = 72 + r*24;
+    d.style.cssText = `width:${size}px;height:${size}px;animation:pulseRing ${0.9+r*0.4}s ease-out infinite;animation-delay:${r*0.2}s`;
+    wrap.insertBefore(d, wrap.firstChild);
+  });
+}
+function removeRings(wrap) {
+  wrap.querySelectorAll('.mic-ring').forEach(r => r.remove());
+}
+
+// ═══════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  HOME SCREEN
+// ═══════════════════════════════════════════════
+function renderHome() {
+  const scroll = document.getElementById('home-scroll');
+  if (!state.lists.length) {
+    scroll.innerHTML = `
+      <div class="empty">
+        <span class="emoji">📋</span>
+        <p>Tap + to create your first list</p>
+      </div>`;
+    return;
+  }
+  scroll.innerHTML = state.lists.map(l => {
+    const {total, done} = countItems(l.items);
+    const pct = total ? (done/total*100) : 0;
+    const col = COLORS[l.colorIdx] || COLORS[0];
+    return `
+      <div class="list-card" data-id="${l.id}">
+        <div class="list-icon" style="background:${col.bg}22">${l.icon}</div>
+        <div class="list-info">
+          <div class="list-name">${esc(l.name)}</div>
+          <div class="list-meta">${total} item${total!==1?'s':''} · ${done} done</div>
+          ${total ? `<div class="list-progress"><div class="list-progress-fill" style="width:${pct}%;background:${col.grad}"></div></div>` : ''}
+        </div>
+        <button class="list-del" data-del="${l.id}" aria-label="Delete list">✕</button>
+      </div>`;
+  }).join('');
+
+  scroll.querySelectorAll('.list-card').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.dataset.del) return;
+      openList(card.dataset.id);
+    });
+  });
+  scroll.querySelectorAll('.list-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      state.lists = state.lists.filter(l => l.id !== btn.dataset.del);
+      saveData();
+      renderHome();
+    });
+  });
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════
+//  DETAIL SCREEN
+// ═══════════════════════════════════════════════
+function openList(id) {
+  state.currentListId = id;
+  state.activeDayId = null;
+  state.renaming = false;
+  renderDetail();
+  showScreen('screen-detail');
+}
+
+function renderDetail() {
+  const list = currentList();
+  if (!list) return;
+  const col = COLORS[list.colorIdx] || COLORS[0];
+  const {total, done} = countItems(list.items);
+  const pct = total ? (done/total*100) : 0;
+
+  // Header
+  document.getElementById('detail-icon').textContent = list.icon;
+  document.getElementById('detail-name').textContent = list.name;
+  document.getElementById('detail-count').textContent = `${total} item${total!==1?'s':''}`;
+
+  // Rename bar
+  const renameBar = document.getElementById('rename-bar');
+  renameBar.style.display = state.renaming ? '' : 'none';
+  document.getElementById('rename-bar').style.display = state.renaming ? '' : 'none';
+
+  // Progress
+  const prog = document.getElementById('detail-progress');
+  if (total > 0) {
+    prog.style.display = '';
+    document.getElementById('detail-progress-fill').style.cssText =
+      `width:${pct}%;background:${col.grad}`;
+    document.getElementById('detail-progress-label').textContent =
+      `${done} of ${total} done`;
+  } else {
+    prog.style.display = 'none';
+  }
+
+  // Day banner
+  const banner = document.getElementById('day-banner');
+  if (state.activeDayId) {
+    const dg = list.items?.find(i => i.id === state.activeDayId);
+    if (dg) {
+      const dc = DAY_COLORS[dg.day];
+      banner.style.display = '';
+      banner.style.background = dc.light;
+      banner.style.border = `1px solid ${dc.border}`;
+      document.getElementById('day-banner-text').innerHTML =
+        `🎤 Adding to <strong style="color:#fff">${cap(dg.day)}</strong>`;
+    } else {
+      banner.style.display = 'none';
+      state.activeDayId = null;
+    }
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // Items
+  renderItems();
+}
+
+function renderItems() {
+  const list = currentList();
+  const scroll = document.getElementById('detail-scroll');
+  const items = list?.items || [];
+
+  if (!items.length) {
+    scroll.innerHTML = `
+      <div class="empty">
+        <span class="emoji">🎤</span>
+        <p>Tap the mic and speak your items</p>
+        <small>Start with a day e.g. "Monday Drama club"<br>to create a day group</small>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  for (const item of items) {
+    if (item.type === 'item') {
+      html += `
+        <div class="item-row ${item.checked?'checked':'unchecked'}" data-id="${item.id}">
+          <div class="checkbox ${item.checked?'done':''}" data-toggle="${item.id}"></div>
+          <span class="item-text ${item.checked?'done':''}">${esc(item.text)}</span>
+          <button class="item-del-btn" data-del="${item.id}" aria-label="Delete">×</button>
+        </div>`;
+    } else if (item.type === 'day-group') {
+      const dc = DAY_COLORS[item.day] || DAY_COLORS.monday;
+      const done = (item.items||[]).filter(si=>si.checked).length;
+      const isActive = state.activeDayId === item.id;
+      html += `
+        <div class="day-group${isActive?' active-group':''}" data-gid="${item.id}" style="${isActive?`border-color:${dc.border}`:''}">
+          <div class="day-header" style="background:${dc.light}" data-collapse="${item.id}">
+            <div class="day-dot" style="background:${dc.bg}"></div>
+            <span class="day-label">${item.day}</span>
+            <span class="day-count">${done}/${(item.items||[]).length}</span>
+            <span class="day-chevron">${item.collapsed?'▼':'▲'}</span>
+            <button class="day-del" data-gdel="${item.id}" aria-label="Delete group">×</button>
+          </div>
+          ${!item.collapsed ? `
+          <div class="day-body">
+            ${!(item.items||[]).length ? '<div class="day-empty">No items yet — speak to add</div>' :
+              (item.items||[]).map(si => `
+              <div class="sub-row ${si.checked?'checked':''}" data-sid="${si.id}" data-gid="${item.id}">
+                <div class="sub-checkbox" style="${si.checked?`background:${dc.bg};border:none`:`border:2px solid ${dc.bg}99;background:transparent`}" data-subtoggle="${si.id}" data-gid="${item.id}">
+                  ${si.checked?`<span style="color:#fff;font-size:11px;font-weight:900">✓</span>`:''}
+                </div>
+                <span class="sub-text ${si.checked?'done':''}">${esc(si.text)}</span>
+                <button class="sub-del" data-subdel="${si.id}" data-gid="${item.id}" aria-label="Delete">×</button>
+              </div>`).join('')}
+          </div>` : ''}
+        </div>`;
+    }
+  }
+
+  // Clear completed button
+  const hasChecked = items.some(i =>
+    (i.type==='item' && i.checked) ||
+    (i.type==='day-group' && (i.items||[]).some(si=>si.checked))
+  );
+  if (hasChecked) html += `<button class="clear-btn" id="clear-btn">Clear completed</button>`;
+
+  scroll.innerHTML = html;
+
+  // Wire events
+  scroll.querySelectorAll('[data-toggle]').forEach(el => {
+    el.addEventListener('click', () => toggleItem(el.dataset.toggle));
+  });
+  scroll.querySelectorAll('[data-del]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); deleteItem(el.dataset.del); });
+  });
+  scroll.querySelectorAll('[data-collapse]').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.dataset.gdel) return;
+      toggleCollapse(el.dataset.collapse);
+    });
+  });
+  scroll.querySelectorAll('[data-gdel]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); deleteItem(el.dataset.gdel); });
+  });
+  scroll.querySelectorAll('[data-subtoggle]').forEach(el => {
+    el.addEventListener('click', () => toggleSubItem(el.dataset.gid, el.dataset.subtoggle));
+  });
+  scroll.querySelectorAll('[data-subdel]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); deleteSubItem(el.dataset.gid, el.dataset.subdel); });
+  });
+  const clearBtn = document.getElementById('clear-btn');
+  if (clearBtn) clearBtn.addEventListener('click', clearChecked);
+}
+
+// ═══════════════════════════════════════════════
+//  ITEM OPERATIONS
+// ═══════════════════════════════════════════════
+function toggleItem(id) {
+  mutateItems(items => items.map(i => i.id===id ? {...i,checked:!i.checked} : i));
+  renderItems(); updateProgress();
+}
+function deleteItem(id) {
+  if (state.activeDayId === id) state.activeDayId = null;
+  mutateItems(items => items.filter(i => i.id!==id));
+  renderDetail();
+}
+function toggleSubItem(gid, sid) {
+  mutateItems(items => items.map(i =>
+    i.id===gid ? {...i, items:(i.items||[]).map(si => si.id===sid?{...si,checked:!si.checked}:si)} : i
+  ));
+  renderItems(); updateProgress();
+}
+function deleteSubItem(gid, sid) {
+  mutateItems(items => items.map(i =>
+    i.id===gid ? {...i, items:(i.items||[]).filter(si=>si.id!==sid)} : i
+  ));
+  renderItems(); updateProgress();
+}
+function toggleCollapse(gid) {
+  mutateItems(items => items.map(i => i.id===gid?{...i,collapsed:!i.collapsed}:i));
+  renderItems();
+}
+function clearChecked() {
+  mutateItems(items =>
+    items
+      .filter(i => !(i.type==='item' && i.checked))
+      .map(i => i.type==='day-group' ? {...i, items:(i.items||[]).filter(si=>!si.checked)} : i)
+  );
+  renderDetail();
+}
+function updateProgress() {
+  const list = currentList();
+  if (!list) return;
+  const {total,done} = countItems(list.items);
+  const pct = total ? (done/total*100) : 0;
+  const col = COLORS[list.colorIdx]||COLORS[0];
+  document.getElementById('detail-count').textContent = `${total} item${total!==1?'s':''}`;
+  const prog = document.getElementById('detail-progress');
+  if (total>0) {
+    prog.style.display='';
+    document.getElementById('detail-progress-fill').style.cssText=`width:${pct}%;background:${col.grad}`;
+    document.getElementById('detail-progress-label').textContent=`${done} of ${total} done`;
+  } else { prog.style.display='none'; }
+}
+
+// ═══════════════════════════════════════════════
+//  VOICE — ITEMS
+// ═══════════════════════════════════════════════
+function processVoiceItem(text) {
+  const parsed = parseVoice(text);
+  const list = currentList();
+  if (!list) return;
+
+  if (parsed.isDay) {
+    const existing = list.items?.find(i => i.type==='day-group' && i.day===parsed.day);
+    if (existing) {
+      if (parsed.rest) addSubItem(existing.id, parsed.rest);
+      state.activeDayId = existing.id;
+      if (!parsed.rest) flash(`Now adding to ${cap(parsed.day)}`);
+    } else {
+      addDayGroup(parsed.day, parsed.rest || null);
+    }
+  } else if (state.activeDayId) {
+    addSubItem(state.activeDayId, parsed.text);
+  } else {
+    addRegularItem(parsed.text);
+  }
+  renderDetail();
+}
+
+function addRegularItem(text) {
+  const t = cap(text.toLowerCase());
+  mutateItems(items => [...items, {id:uid(), type:'item', text:t, checked:false}]);
+  state.activeDayId = null;
+  flash(`Added "${t}"`);
+}
+
+function addDayGroup(day, firstItem) {
+  const gid = uid();
+  const subItems = firstItem ? [{id:uid(), text:cap(firstItem.toLowerCase()), checked:false}] : [];
+  mutateItems(items => [...items, {id:gid, type:'day-group', day, collapsed:false, items:subItems}]);
+  state.activeDayId = gid;
+  flash(`Added ${cap(day)}${firstItem ? ` · "${cap(firstItem.toLowerCase())}"` : ''}`);
+}
+
+function addSubItem(gid, text) {
+  const t = cap(text.toLowerCase());
+  mutateItems(items => items.map(i =>
+    i.id===gid ? {...i, items:[...(i.items||[]), {id:uid(), text:t, checked:false}]} : i
+  ));
+  flash(`Added "${t}"`);
+}
+
+// Mic button wiring
+const micBtn  = document.getElementById('mic-btn');
+const micWrap = document.getElementById('mic-wrap');
+const itemWf  = document.getElementById('item-waveform');
+const itemTx  = document.getElementById('item-transcript');
+const vBar    = document.getElementById('voice-bar');
+let itemBars  = [];
+
+micBtn.addEventListener('click', () => {
+  if (itemVoice.isOn) {
+    itemVoice.stop();
+    itemVoice.stopWave();
+    micBtn.className = 'mic-btn idle';
+    micBtn.textContent = '🎤';
+    vBar.style.display = 'none';
+    removeRings(micWrap);
+    pending = []; clearTimeout(silenceTimer);
+  } else {
+    itemBars = buildWave(itemWf);
+    vBar.style.display = '';
+    micBtn.className = 'mic-btn active';
+    micBtn.textContent = '⏹';
+    addRings(micWrap);
+
+    let lastFinal = '';
+    itemVoice.start((text, isFinal) => {
+      if (isFinal) {
+        if (text !== lastFinal) { lastFinal = text; pending.push(text); }
+        itemTx.textContent = text;
+        itemTx.className = 'voice-transcript has-text';
+        clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(() => {
+          const full = pending.join(' ').trim();
+          pending = [];
+          if (full) processVoiceItem(full);
+        }, 1200);
+      } else {
+        itemTx.textContent = text || (state.activeDayId ? `Adding to ${cap(currentList()?.items?.find(i=>i.id===state.activeDayId)?.day||'')}…` : 'Listening…');
+        itemTx.className = 'voice-transcript' + (text?' has-text':'');
+      }
+    }, {
+      continuous: true,
+      onEnd: () => {
+        micBtn.className = 'mic-btn idle';
+        micBtn.textContent = '🎤';
+        vBar.style.display = 'none';
+        removeRings(micWrap);
+        itemVoice.stopWave();
+        const full = pending.join(' ').trim();
+        pending = [];
+        if (full) { processVoiceItem(full); renderDetail(); }
+      }
+    });
+    itemVoice.startWave(itemBars);
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  RENAME
+// ═══════════════════════════════════════════════
+let renameBars = [];
+const renameMicBtn = document.getElementById('rename-mic-btn');
+const renameVBar   = document.getElementById('rename-voice-bar');
+const renameWf     = document.getElementById('rename-waveform');
+const renameTx     = document.getElementById('rename-transcript');
+
+document.getElementById('detail-title-left').addEventListener('click', () => {
+  if (state.renaming) return;
+  state.renaming = true;
+  document.getElementById('rename-bar').style.display = '';
+});
+
+document.getElementById('rename-cancel').addEventListener('click', () => {
+  state.renaming = false;
+  renameVoice.stop();
+  renameVoice.stopWave();
+  renameVBar.style.display = 'none';
+  renameMicBtn.className = 'mic-xs idle';
+  renameMicBtn.textContent = '🎤';
+  document.getElementById('rename-bar').style.display = 'none';
+});
+
+renameMicBtn.addEventListener('click', () => {
+  if (renameVoice.isOn) {
+    renameVoice.stop();
+    renameVoice.stopWave();
+    renameMicBtn.className = 'mic-xs idle';
+    renameMicBtn.textContent = '🎤';
+    renameVBar.style.display = 'none';
+  } else {
+    renameBars = buildWave(renameWf);
+    renameVBar.style.display = '';
+    renameMicBtn.className = 'mic-xs active';
+    renameMicBtn.textContent = '⏹';
+    renameVoice.start((text, isFinal) => {
+      renameTx.textContent = text || 'Speak the new name…';
+      if (isFinal) {
+        const list = currentList();
+        if (list && text) {
+          state.lists = state.lists.map(l =>
+            l.id === state.currentListId ? {...l, name:text, icon:autoIcon(text)} : l
+          );
+          saveData();
+          state.renaming = false;
+          renameVoice.stopWave();
+          renameVBar.style.display = 'none';
+          renameMicBtn.className = 'mic-xs idle';
+          renameMicBtn.textContent = '🎤';
+          document.getElementById('rename-bar').style.display = 'none';
+          renderDetail();
+          flash(`Renamed to "${text}"`);
+        }
+      }
+    }, { onEnd: () => { renameVoice.stopWave(); } });
+    renameVoice.startWave(renameBars);
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  BACK BUTTON
+// ═══════════════════════════════════════════════
+document.getElementById('back-btn').addEventListener('click', () => {
+  itemVoice.stop();
+  itemVoice.stopWave();
+  renameVoice.stop();
+  renameVoice.stopWave();
+  micBtn.className = 'mic-btn idle';
+  micBtn.textContent = '🎤';
+  vBar.style.display = 'none';
+  removeRings(micWrap);
+  pending = []; clearTimeout(silenceTimer);
+  state.activeDayId = null;
+  state.renaming = false;
+  renderHome();
+  showScreen('screen-home');
+});
+
+// Day banner exit
+document.getElementById('day-banner-exit').addEventListener('click', () => {
+  state.activeDayId = null;
+  renderDetail();
+});
+
+// ═══════════════════════════════════════════════
+//  NEW LIST MODAL
+// ═══════════════════════════════════════════════
+let modalBars = [];
+const modalInput   = document.getElementById('modal-input');
+const modalPreview = document.getElementById('modal-preview-name');
+const modalIcon    = document.getElementById('modal-preview-icon');
+const modalWf      = document.getElementById('modal-waveform');
+const modalTx      = document.getElementById('modal-transcript');
+const modalVBar    = document.getElementById('modal-voice-bar');
+const modalMicBtn  = document.getElementById('modal-mic-btn');
+
+// Build colour swatches
+const colorRow = document.getElementById('color-row');
+COLORS.forEach((c, i) => {
+  const d = document.createElement('div');
+  d.className = 'color-dot' + (i===0?' selected':'');
+  d.style.background = c.bg;
+  d.addEventListener('click', () => {
+    state.selectedColor = i;
+    colorRow.querySelectorAll('.color-dot').forEach((el,j) => {
+      el.className = 'color-dot' + (j===i?' selected':'');
+    });
+    updateModalPreviewIcon();
+  });
+  colorRow.appendChild(d);
+});
+
+function updateModalPreview() {
+  const name = modalInput.value.trim();
+  const icon = autoIcon(name);
+  const col  = COLORS[state.selectedColor];
+  modalPreview.textContent = name || 'List name…';
+  modalPreview.style.color = name ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.3)';
+  modalIcon.textContent = icon;
+  modalIcon.style.background = col.bg + '33';
+}
+function updateModalPreviewIcon() { updateModalPreview(); }
+
+modalInput.addEventListener('input', updateModalPreview);
+
+document.getElementById('fab-new').addEventListener('click', () => {
+  modalInput.value = '';
+  state.selectedColor = 0;
+  colorRow.querySelectorAll('.color-dot').forEach((el,i) => {
+    el.className = 'color-dot' + (i===0?' selected':'');
+  });
+  updateModalPreview();
+  document.getElementById('modal').style.display = 'flex';
+});
+
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+
+document.getElementById('modal-create').addEventListener('click', () => {
+  const name = modalInput.value.trim() || 'Untitled List';
+  const newList = {
+    id: uid(), name, icon: autoIcon(name),
+    colorIdx: state.selectedColor, items: [], createdAt: Date.now()
+  };
+  state.lists.unshift(newList);
+  saveData();
+  closeModal();
+  renderHome();
+});
+
+function closeModal() {
+  modalVoice.stop();
+  modalVoice.stopWave();
+  modalVBar.style.display = 'none';
+  modalMicBtn.className = 'mic-sm idle';
+  modalMicBtn.textContent = '🎤';
+  document.getElementById('modal').style.display = 'none';
+}
+
+// Modal mic
+modalMicBtn.addEventListener('click', () => {
+  if (modalVoice.isOn) {
+    modalVoice.stop();
+    modalVoice.stopWave();
+    modalMicBtn.className = 'mic-sm idle';
+    modalMicBtn.textContent = '🎤';
+    modalVBar.style.display = 'none';
+  } else {
+    modalBars = buildWave(modalWf);
+    modalVBar.style.display = '';
+    modalMicBtn.className = 'mic-sm active';
+    modalMicBtn.textContent = '⏹';
+    modalVoice.start((text, isFinal) => {
+      modalTx.textContent = text || 'Speak the list name…';
+      modalTx.className = 'voice-transcript' + (text?' has-text':'');
+      if (isFinal && text) {
+        modalInput.value = text;
+        updateModalPreview();
+        modalVoice.stop();
+        modalVoice.stopWave();
+        modalMicBtn.className = 'mic-sm idle';
+        modalMicBtn.textContent = '🎤';
+        modalVBar.style.display = 'none';
+      }
+    }, { onEnd: () => { modalVoice.stopWave(); } });
+    modalVoice.startWave(modalBars);
+  }
+});
+
+// Close modal on overlay tap
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+// ═══════════════════════════════════════════════
+//  SERVICE WORKER
+// ═══════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+renderHome();
+</script>
+</body>
+</html>
