@@ -780,19 +780,35 @@ function startItemListening() {
   itemTxEl.textContent = 'Listening…';
   itemTxEl.className = 'voice-transcript';
 
+  let holdTimer = null;
+  let pendingText = '';
+
   itemVoice.start((text, isFinal) => {
     itemTxEl.textContent = text || 'Listening…';
     itemTxEl.className = 'voice-transcript' + (text ? ' has-text' : '');
 
-    if (isFinal && text && text !== lastFinalText) {
-      lastFinalText = text;
-      processVoiceItem(text);
+    if (isFinal && text) {
+      // Hold 300ms before committing. Chrome sometimes fires "call" then
+      // "call family" as two separate finals. The hold means only the last
+      // (longest) result gets processed.
+      clearTimeout(holdTimer);
+      pendingText = text;
+      holdTimer = setTimeout(() => {
+        if (pendingText) {
+          processVoiceItem(pendingText);
+          pendingText = '';
+        }
+      }, 300);
     }
   }, {
     onEnd: () => {
-      // Chrome stops after each pause — add the item then restart
+      // Flush pending immediately when Chrome stops naturally
+      clearTimeout(holdTimer);
+      if (pendingText) {
+        processVoiceItem(pendingText);
+        pendingText = '';
+      }
       if (keepListening) {
-        lastFinalText = '';
         setTimeout(() => {
           if (keepListening) startItemListening();
         }, 150);
