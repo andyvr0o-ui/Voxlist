@@ -1339,8 +1339,7 @@ function extractRecipeFields(obj){
       return null;
     }).filter(Boolean);
   } else if(typeof instr==='string'){
-    steps=instr.split(/
-+/).map(s=>s.trim()).filter(Boolean);
+    steps=instr.split(/\n+/).map(s=>s.trim()).filter(Boolean);
   }
 
   return{name,ingredients,servings,totalTime,steps};
