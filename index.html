@@ -333,10 +333,81 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function randomAccent(){return ACCENT_COLORS[Math.floor(Math.random()*ACCENT_COLORS.length)];}
 function loadData(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||[];}catch{return[];}}
 function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.lists));}catch{}}
+// ── Date helpers ──
+function todayDate(){
+  const d=new Date();d.setHours(0,0,0,0);return d;
+}
+function dateToKey(d){
+  // Store as YYYY-MM-DD string
+  return d.toISOString().slice(0,10);
+}
+function keyToDate(k){
+  const [y,m,d]=k.split('-').map(Number);
+  const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;
+}
+function daysDiff(dateKey){
+  // Positive = future, negative = past, 0 = today
+  const today=todayDate();
+  const target=keyToDate(dateKey);
+  return Math.round((target-today)/(1000*60*60*24));
+}
+function dateGroupLabel(dateKey){
+  const diff=daysDiff(dateKey);
+  if(diff===0)return'Today';
+  if(diff===1)return'Tomorrow';
+  if(diff===-1)return'Yesterday';
+  const d=keyToDate(dateKey);
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return`${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+function nextWeekdayDate(dayName){
+  // Returns the date of the NEXT occurrence of dayName (always at least 1 day ahead)
+  const dayIdx=DAYS.indexOf(dayName);
+  const today=todayDate();
+  const todayIdx=today.getDay()===0?6:today.getDay()-1; // Mon=0
+  let diff=dayIdx-todayIdx;
+  if(diff<=0)diff+=7;
+  const result=new Date(today);result.setDate(today.getDate()+diff);
+  return dateToKey(result);
+}
+
 function parseVoice(text){
-  const lower=text.trim().toLowerCase();
-  for(const day of DAYS){if(lower.startsWith(day))return{isDay:true,day,rest:text.trim().slice(day.length).trim()};}
-  return{isDay:false,text:text.trim()};
+  const trimmed=text.trim();
+  const lower=trimmed.toLowerCase();
+  const today=todayDate();
+
+  // "next [day]" e.g. "next wednesday hospital"
+  const nextMatch=lower.match(/^next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*(.*)/);
+  if(nextMatch){
+    const day=nextMatch[1];
+    const rest=trimmed.slice(nextMatch[0].length-(nextMatch[2].length)).trim();
+    return{isDateGroup:true,dateKey:nextWeekdayDate(day),rest:capFirst(rest)};
+  }
+
+  // "today", "tomorrow", "yesterday"
+  if(lower.startsWith('today')){
+    const rest=capFirst(trimmed.slice(5).trim());
+    return{isDateGroup:true,dateKey:dateToKey(today),rest};
+  }
+  if(lower.startsWith('tomorrow')){
+    const t=new Date(today);t.setDate(today.getDate()+1);
+    const rest=capFirst(trimmed.slice(8).trim());
+    return{isDateGroup:true,dateKey:dateToKey(t),rest};
+  }
+  if(lower.startsWith('yesterday')){
+    const t=new Date(today);t.setDate(today.getDate()-1);
+    const rest=capFirst(trimmed.slice(9).trim());
+    return{isDateGroup:true,dateKey:dateToKey(t),rest};
+  }
+
+  // bare day names
+  for(const day of DAYS){
+    if(lower.startsWith(day)){
+      return{isDay:true,day,rest:trimmed.slice(day.length).trim()};
+    }
+  }
+  return{isDay:false,text:trimmed};
 }
 
 // ═══════════════════════════════════════
@@ -465,7 +536,7 @@ const createTx=document.getElementById('create-transcript');
 document.getElementById('fab-new').addEventListener('click',openCreateListen);
 document.getElementById('create-cancel').addEventListener('click',()=>{createVoice.stop();createVoice.stopWave();createOverlay.style.display='none';});
 
-function openCreateListen(){
+function openCreateListen(){history.pushState({screen:'create'},'');
   createBars=buildWave(createWf);
   createTx.textContent='Listening…';
   createOverlay.style.display='flex';
@@ -492,7 +563,7 @@ function createNewList(name){
 // ═══════════════════════════════════════
 //  DETAIL
 // ═══════════════════════════════════════
-function openList(id){state.currentListId=id;state.activeDayId=null;state.renaming=false;renderDetail();showScreen('screen-detail');}
+function openList(id){state.currentListId=id;state.activeDayId=null;state.renaming=false;renderDetail();showScreen('screen-detail');history.pushState({screen:'detail',listId:id},'');}
 
 function renderDetail(){
   const list=currentList();if(!list)return;
@@ -531,13 +602,27 @@ function renderItems(){
           <button class="item-del-btn" data-del="${item.id}">${SVG.close}</button>
         </div>`;
     } else if(item.type==='day-group'){
-      const dc=DAY_COLORS[item.day]||DAY_COLORS.monday;
+      // Determine label and colour based on type
+      const isDateGrp=!!item.dateKey;
+      let dc, groupLabel;
+      if(isDateGrp){
+        const diff=daysDiff(item.dateKey);
+        if(diff===0)       dc=DAY_COLORS.wednesday;
+        else if(diff===1)  dc=DAY_COLORS.tuesday;
+        else if(diff===-1) dc=DAY_COLORS.thursday;
+        else if(diff>1)    dc=DAY_COLORS.saturday;
+        else               dc=DAY_COLORS.monday;
+        groupLabel=dateGroupLabel(item.dateKey);
+      } else {
+        dc=DAY_COLORS[item.day]||DAY_COLORS.monday;
+        groupLabel=item.day;
+      }
       const gDone=(item.items||[]).filter(si=>si.checked).length;
       html+=`
         <div class="day-group" data-gid="${item.id}" style="border-color:${dc.border}">
           <div class="day-header" style="background:${dc.light}" data-collapse="${item.id}">
             <div class="day-dot" style="background:${dc.bg}"></div>
-            <span class="day-label" style="color:${dc.bg}">${item.day}</span>
+            <span class="day-label" style="color:${dc.bg}">${groupLabel}</span>
             <span class="day-count">${gDone}/${(item.items||[]).length}</span>
             <span style="color:rgba(255,255,255,0.3);display:flex">${item.collapsed?SVG.chevD:SVG.chevU}</span>
             <button class="day-del" data-gdel="${item.id}">${SVG.close}</button>
@@ -713,9 +798,21 @@ function updateProgress(){
 
 function reorderItems(){
   mutateItems(items=>{
-    const dayGroups=items.filter(i=>i.type==='day-group').sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+    // Date groups (have dateKey) — sorted: today first, future asc, past desc
+    const dateGroups=items.filter(i=>i.type==='day-group'&&i.dateKey).sort((a,b)=>{
+      const da=daysDiff(a.dateKey), db=daysDiff(b.dateKey);
+      // Today (0) first, then future (+) asc, then past (-) desc
+      function rank(d){
+        if(d===0)return 0;
+        if(d>0)return d;       // 1,2,3... future
+        return 1000+Math.abs(d); // past goes to bottom
+      }
+      return rank(da)-rank(db);
+    });
+    // Day-of-week groups (no dateKey) — Mon-Sun order
+    const dayGroups=items.filter(i=>i.type==='day-group'&&!i.dateKey).sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
     const regular=items.filter(i=>i.type!=='day-group');
-    return[...dayGroups,...regular];
+    return[...dateGroups,...dayGroups,...regular];
   });
 }
 
@@ -725,8 +822,19 @@ function reorderItems(){
 function processVoiceItem(text){
   const parsed=parseVoice(text);
   const list=currentList();if(!list)return;
-  if(parsed.isDay){
-    const existing=list.items?.find(i=>i.type==='day-group'&&i.day===parsed.day);
+
+  if(parsed.isDateGroup){
+    // today/tomorrow/yesterday/next wednesday
+    const existing=list.items?.find(i=>i.type==='day-group'&&i.dateKey===parsed.dateKey);
+    if(existing){
+      if(parsed.rest)addSubItem(existing.id,parsed.rest);
+      state.activeDayId=existing.id;
+      reorderItems();
+    } else {
+      addDateGroup(parsed.dateKey,parsed.rest||null);
+    }
+  } else if(parsed.isDay){
+    const existing=list.items?.find(i=>i.type==='day-group'&&i.day===parsed.day&&!i.dateKey);
     if(existing){
       if(parsed.rest)addSubItem(existing.id,parsed.rest);
       state.activeDayId=existing.id;
@@ -753,6 +861,15 @@ function addDayGroup(day,firstItem){
   mutateItems(items=>[...items,{id:gid,type:'day-group',day,collapsed:false,items:subItems}]);
   state.activeDayId=gid;
   flash(`Added ${capFirst(day)}${firstItem?` · "${capFirst(firstItem)}"`:''}`);
+  reorderItems();
+}
+function addDateGroup(dateKey,firstItem){
+  const gid=uid();
+  const subItems=firstItem?[{id:uid(),text:capFirst(firstItem),checked:false}]:[];
+  mutateItems(items=>[...items,{id:gid,type:'day-group',dateKey,collapsed:false,items:subItems}]);
+  state.activeDayId=gid;
+  const label=dateGroupLabel(dateKey);
+  flash(`Added ${label}${firstItem?` · "${capFirst(firstItem)}"`:''}`);
   reorderItems();
 }
 function addSubItem(gid,text){
@@ -876,6 +993,27 @@ document.getElementById('rename-cancel').addEventListener('click',()=>{
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 }
+
+// Handle browser back button
+window.addEventListener('popstate', (e) => {
+  const s = e.state;
+  // If create overlay is open, close it
+  if (createOverlay.style.display !== 'none') {
+    createVoice.stop(); createVoice.stopWave();
+    createOverlay.style.display = 'none';
+    return;
+  }
+  // If in detail screen, go home
+  if (document.getElementById('screen-detail').classList.contains('active')) {
+    keepListening = false;
+    itemVoice.stop(); itemVoice.stopWave();
+    renameVoice.stop();
+    setMicActive(false);
+    state.activeDayId = null; state.renaming = false;
+    document.getElementById('rename-listening').style.display = 'none';
+    renderHome(); showScreen('screen-home');
+  }
+});
 
 renderHome();
 </script>
