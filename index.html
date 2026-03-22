@@ -551,7 +551,7 @@ function parseVoice(text){
       // Check if rest starts with a meal word -> day+meal combo
       for(const meal of ['lunch','dinner']){
         if(restLower.startsWith(meal)){
-          const dishRest=capFirst(rest.slice(meal.length).trim());
+          const dishRest=capFirst(rest.slice(meal.length).trim())||null;
           if(isTomorrow(day)){
             const t=new Date(today);t.setDate(today.getDate()+1);
             return{isDateGroup:true,dateKey:dateToKey(t),rest:null,nestedMeal:meal,nestedDish:dishRest};
@@ -856,7 +856,33 @@ function renderItems(){
           ${!item.collapsed?`
           <div class="day-body" data-gbody="${item.id}">
             ${!(item.items||[]).length?'<div class="day-empty">No items yet — speak to add</div>':
-              (item.items||[]).map(si=>`
+              (item.items||[]).map(si=>{
+                if(si.type==='nested-meal'){
+                  const nmc=MEAL_COLORS[si.meal]||MEAL_COLORS.dinner;
+                  const nDone=(si.items||[]).filter(x=>x.checked).length;
+                  return `<div style="border:1px solid ${nmc.border};background:rgba(0,0,0,0.12);border-radius:10px;margin-bottom:5px;overflow:hidden;">
+                    <div style="background:${nmc.light};display:flex;align-items:center;gap:8px;padding:8px 10px;">
+                      <div style="width:6px;height:6px;border-radius:50%;background:${nmc.bg};flex-shrink:0"></div>
+                      <span style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${nmc.bg};flex:1">${si.meal}</span>
+                      ${si.recipe?`<span style="font-size:11px;color:rgba(255,255,255,0.4);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(si.recipe.name)}</span>`:''}
+                      <span style="font-size:11px;color:rgba(255,255,255,0.4)">${nDone}/${(si.items||[]).length}</span>
+                      <button style="background:none;border:none;cursor:pointer;padding:1px 4px;font-size:12px;font-family:inherit;color:${si.recipeSearch?'#16a34a':'rgba(255,255,255,0.4)'};" data-nested-recipe="${si.id}" data-day-gid="${item.id}">${si.recipeSearch?'✨ Found':'✨'}</button>
+                      <button style="background:none;border:none;color:rgba(255,255,255,0.2);cursor:pointer;padding:0 4px;display:flex;" data-nested-del="${si.id}" data-gid="${item.id}">${SVG.close}</button>
+                    </div>
+                    <div style="padding:4px 6px 6px;">
+                      ${!(si.items||[]).length?'<div class="day-empty">No items — tap ✨ to add recipe</div>':
+                        (si.items||[]).map(mi=>`
+                        <div class="sub-row ${mi.checked?'checked':''}" style="margin-bottom:3px;">
+                          <div class="sub-checkbox" style="${mi.checked?`background:${nmc.bg};border:none`:`border:2px solid ${nmc.bg}66;background:transparent`}" data-nested-toggle="${mi.id}" data-nested-gid="${si.id}" data-day-gid="${item.id}">
+                            ${mi.checked?`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:''}
+                          </div>
+                          <span class="sub-text ${mi.checked?'done':''}">${esc(mi.text)}</span>
+                          <button style="background:none;border:none;color:rgba(255,255,255,0.15);cursor:pointer;padding:0 4px;display:flex;" data-nested-item-del="${mi.id}" data-nested-gid="${si.id}" data-day-gid="${item.id}">${SVG.close}</button>
+                        </div>`).join('')}
+                    </div>
+                  </div>`;
+                }
+                return `
               <div class="sub-row ${si.checked?'checked':''}" data-sid="${si.id}" data-parent="${item.id}" draggable="true">
                 <div class="drag-handle">${SVG.grip}</div>
                 <div class="sub-checkbox" style="${si.checked?`background:${dc.bg};border:none`:`border:2px solid ${dc.bg}66;background:transparent`}" data-subtoggle="${si.id}" data-gid="${item.id}">
@@ -864,7 +890,8 @@ function renderItems(){
                 </div>
                 <span class="sub-text ${si.checked?'done':''}">${esc(si.text)}</span>
                 <button class="sub-del" data-subdel="${si.id}" data-gid="${item.id}">${SVG.close}</button>
-              </div>`).join('')}
+              </div>`;
+              }).join('')}
           </div>`:''}
         </div>`;
     }
