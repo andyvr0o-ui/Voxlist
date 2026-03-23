@@ -721,7 +721,26 @@ function openCreateListen(){history.pushState({screen:'create'},'');
       createOverlay.style.display='none';
       createNewList(name);
     }
-  },{onEnd:()=>{createVoice.stopWave();}});
+  },{onEnd:()=>{
+    createVoice.stopWave();
+    // Restart if overlay still open and nothing heard yet
+    if(createOverlay.style.display!=='none'){
+      setTimeout(()=>{
+        if(createOverlay.style.display!=='none'){
+          createBars=buildWave(createWf);
+          createVoice.start((text,isFinal)=>{
+            createTx.textContent=text||'Listening…';
+            if(isFinal&&text){
+              createVoice.stop();createVoice.stopWave();
+              createOverlay.style.display='none';
+              createNewList(capFirst(text));
+            }
+          },{onEnd:()=>{createVoice.stopWave();}});
+          createVoice.startWave(createBars);
+        }
+      },300);
+    }
+  }});
   createVoice.startWave(createBars);
 }
 
