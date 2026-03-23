@@ -166,6 +166,8 @@
   .recipe-preview { flex: 1; overflow-y: auto; padding: 0 16px 16px; }
   .recipe-preview::-webkit-scrollbar { display: none; }
   .recipe-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 10px; }
+  .recipe-pick-card { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+  .recipe-pick-card:active { background: var(--surface2); border-color: rgba(124,58,237,0.4); }
   .recipe-card-name { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
   .recipe-card-meta { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 10px; }
   .recipe-card-ingredients { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.6; margin-bottom: 12px; }
@@ -1630,6 +1632,50 @@ function parseDurationStr(iso){
   if(h)return `${h}h`;
   if(min)return `${min} mins`;
   return null;
+}
+
+async function searchMealDBAndShow(dishName){
+  recipeStatus.textContent='Searching...';
+  recipePreview.innerHTML='';
+  try {
+    const query=encodeURIComponent(dishName.trim());
+    const res=await fetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${query}`);
+    const data=await res.json();
+    const meals=data.meals;
+    if(!meals||!meals.length){
+      recipeStatus.textContent='No recipe found. Paste a URL below to try manually.';
+      return;
+    }
+    if(meals.length===1){
+      // Only one result — add automatically
+      recipeStatus.textContent='';
+      addRecipeToGroup(parseMealDBResult(meals[0]));
+      return;
+    }
+    // Multiple results — show picker (up to 6)
+    showRecipePicker(meals.slice(0,6).map(m=>parseMealDBResult(m)));
+  } catch(e){
+    recipeStatus.textContent='Could not search. Paste a URL below.';
+  }
+}
+
+function showRecipePicker(recipes){
+  recipeStatus.textContent='Choose a recipe:';
+  recipePreview.innerHTML=recipes.map((r,i)=>`
+    <div class="recipe-card recipe-pick-card" data-pick="${i}">
+      <div class="recipe-card-name">${esc(r.name)}</div>
+      <div class="recipe-card-meta">${[
+        r.totalTime?`${r.totalTime}`:'',
+        `${r.ingredients.length} ingredients`,
+        r.steps.length?`${r.steps.length} steps`:''
+      ].filter(Boolean).join(' · ')}</div>
+      <div class="recipe-card-ingredients">${esc(r.ingredients.slice(0,4).join(', '))}${r.ingredients.length>4?'...':''}</div>
+    </div>`).join('');
+  recipePreview.querySelectorAll('[data-pick]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      addRecipeToGroup(recipes[parseInt(el.dataset.pick)]);
+    });
+  });
 }
 
 function showRecipePreview(recipe){
