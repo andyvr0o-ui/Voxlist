@@ -579,6 +579,7 @@ const state={
   currentListId:null,
   activeDayId:null,
   renaming:false,
+  pendingDish:false,
 };
 function currentList(){return state.lists.find(l=>l.id===state.currentListId);}
 function mutateItems(fn){
@@ -1212,7 +1213,18 @@ function processVoiceItem(text){
   const list=currentList();if(!list)return;
 
   if(parsed.isDish){
-    addDishItem(parsed.dishName||null);
+    if(parsed.dishName){
+      // Has dish name — add directly to active day or top level
+      if(state.activeDayId){
+        addDishSubItem(state.activeDayId, parsed.dishName);
+      } else {
+        addDishItem(parsed.dishName);
+      }
+    } else {
+      // Just "dinner" or "meal" with no dish name — set pending flag
+      state.pendingDish=true;
+      flash('Listening for dish name…');
+    }
     renderDetail();
     return;
   }
@@ -1257,6 +1269,14 @@ function processVoiceItem(text){
       } else {
         addDayGroup(parsed.day,parsed.rest||null);
       }
+    }
+  } else if(state.pendingDish){
+    // Previous "meal"/"dinner" with no name — this item is the dish name
+    state.pendingDish=false;
+    if(state.activeDayId){
+      addDishSubItem(state.activeDayId, parsed.text);
+    } else {
+      addDishItem(parsed.text);
     }
   } else if(state.activeDayId){
     addSubItem(state.activeDayId,parsed.text);
@@ -1726,7 +1746,7 @@ function startItemListening(){
 micBtn.addEventListener('click',()=>{
   if(keepListening){
     keepListening=false;itemVoice.stop();itemVoice.stopWave();
-    setMicActive(false);state.activeDayId=null;
+    setMicActive(false);state.activeDayId=null;state.pendingDish=false;
   } else {
     keepListening=true;state.activeDayId=null;
     setMicActive(true);startItemListening();
