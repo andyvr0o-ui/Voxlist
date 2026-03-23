@@ -516,23 +516,34 @@ function parseVoice(text){
   if(lower.startsWith('day after tomorrow')){
     const t=new Date(today);t.setDate(today.getDate()+2);
     const rest=capFirst(trimmed.slice(18).trim());
-    return{isDateGroup:true,dateKey:dateToKey(t),rest};
+    return checkMealInRest(dateToKey(t), rest);
   }
 
   // "today", "tomorrow", "yesterday"
+  // Helper to check if rest starts with a meal trigger
+  function checkMealInRest(dateKey, restStr){
+    const restLower=restStr.toLowerCase();
+    for(const trigger of ['meal','breakfast','lunch','dinner','supper','snack']){
+      if(restLower.startsWith(trigger)){
+        const dishName=capFirst(restStr.slice(trigger.length).trim())||null;
+        return{isDateGroup:true,dateKey,rest:null,nestedDish:dishName};
+      }
+    }
+    return{isDateGroup:true,dateKey,rest:restStr||null};
+  }
   if(lower.startsWith('today')){
     const rest=capFirst(trimmed.slice(5).trim());
-    return{isDateGroup:true,dateKey:dateToKey(today),rest};
+    return checkMealInRest(dateToKey(today), rest);
   }
   if(lower.startsWith('tomorrow')){
     const t=new Date(today);t.setDate(today.getDate()+1);
     const rest=capFirst(trimmed.slice(8).trim());
-    return{isDateGroup:true,dateKey:dateToKey(t),rest};
+    return checkMealInRest(dateToKey(t), rest);
   }
   if(lower.startsWith('yesterday')){
     const t=new Date(today);t.setDate(today.getDate()-1);
     const rest=capFirst(trimmed.slice(9).trim());
-    return{isDateGroup:true,dateKey:dateToKey(t),rest};
+    return checkMealInRest(dateToKey(t), rest);
   }
 
   // meal/food triggers — create a dish item
